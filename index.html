@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roblox Cookie Refresher</title>
+    <title>Roblox Cookie Refresher - Web Service</title>
     <style>
         * {
             margin: 0;
@@ -25,7 +25,7 @@
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 500px;
+            max-width: 550px;
             width: 100%;
             padding: 40px;
             animation: fadeIn 0.5s ease-out;
@@ -54,6 +54,24 @@
             font-size: 14px;
         }
 
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
         .input-group {
             margin-bottom: 20px;
         }
@@ -62,7 +80,7 @@
             display: block;
             margin-bottom: 8px;
             color: #333;
-            font-weight: 500;
+            font-weight: 600;
         }
 
         textarea {
@@ -147,16 +165,6 @@
             background: #218838;
         }
 
-        .warning {
-            background: #fff3cd;
-            border: 1px solid #ffeeba;
-            color: #856404;
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: 13px;
-        }
-
         .loading {
             display: inline-block;
             width: 20px;
@@ -172,15 +180,39 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        .feature-list {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .feature-list ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .status {
+            margin-top: 10px;
+            font-size: 12px;
+            text-align: center;
+            color: #666;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🍪 Roblox Cookie Refresher</h1>
-        <div class="subtitle">Refresh and extend your .ROBLOSECURITY cookie</div>
+        <div class="subtitle">Web Service Version - Secure & Fast</div>
+        
+        <div class="info-box">
+            ℹ️ <strong>Status:</strong> <span id="apiStatus">Checking API connection...</span>
+        </div>
         
         <div class="warning">
-            ⚠️ <strong>Security Warning:</strong> Never share your cookie with anyone. This tool runs locally and only sends your cookie to Roblox servers. For maximum security, use incognito mode to get a non-expiring cookie.
+            ⚠️ <strong>Security Warning:</strong> Never share your .ROBLOSECURITY cookie with anyone. Your cookie is only sent to Roblox servers.
         </div>
         
         <div class="input-group">
@@ -193,11 +225,41 @@
         </button>
         
         <div id="result" class="result"></div>
+        
+        <div class="feature-list">
+            <strong>📝 How to get your cookie:</strong>
+            <ul>
+                <li>1. Log into Roblox</li>
+                <li>2. Press F12 → Application/Storage → Cookies</li>
+                <li>3. Find and copy ".ROBLOSECURITY" value</li>
+                <li>4. <strong>Pro tip:</strong> Use incognito mode for non-expiring cookie!</li>
+            </ul>
+        </div>
+        
+        <div class="status">
+            🚀 Deployed on Render Web Service | API: /api/refresh
+        </div>
     </div>
 
     <script>
         const API_URL = '/api/refresh';
-
+        
+        // Check API health on load
+        async function checkAPI() {
+            try {
+                const response = await fetch('/api/health');
+                if (response.ok) {
+                    document.getElementById('apiStatus').innerHTML = '✅ API is connected and ready';
+                    document.getElementById('apiStatus').style.color = '#28a745';
+                } else {
+                    throw new Error('API not responding');
+                }
+            } catch (error) {
+                document.getElementById('apiStatus').innerHTML = '⚠️ API connection issue - but service should still work';
+                document.getElementById('apiStatus').style.color = '#856404';
+            }
+        }
+        
         async function refreshCookie() {
             const cookieInput = document.getElementById('cookie');
             const cookie = cookieInput.value.trim();
@@ -209,13 +271,11 @@
                 return;
             }
             
-            // Basic validation
             if (!cookie.includes('_|WARNING:-DO-')) {
                 showResult('Invalid cookie format. Make sure this is a valid .ROBLOSECURITY cookie', 'error');
                 return;
             }
             
-            // Show loading state
             refreshBtn.disabled = true;
             refreshBtn.innerHTML = '<span class="loading"></span> Refreshing...';
             resultDiv.style.display = 'none';
@@ -242,11 +302,18 @@
                         data.cookie
                     );
                     cookieInput.value = data.cookie;
+                    localStorage.setItem('roblox_cookie', data.cookie);
                 } else {
                     throw new Error(data.error || 'Unknown error occurred');
                 }
             } catch (error) {
-                showResult(`❌ Error: ${error.message}`, 'error');
+                let errorMessage = error.message;
+                if (errorMessage.includes('Failed to fetch')) {
+                    errorMessage = 'Cannot connect to server. Make sure the backend is running.';
+                } else if (errorMessage.includes('500')) {
+                    errorMessage = 'Server error. Your cookie might be invalid or expired.';
+                }
+                showResult(`❌ Error: ${errorMessage}`, 'error');
             } finally {
                 refreshBtn.disabled = false;
                 refreshBtn.innerHTML = '🔄 Refresh Cookie';
@@ -260,8 +327,8 @@
             if (cookie) {
                 resultDiv.innerHTML = `
                     <strong>${message}</strong>
-                    <div class="result-content">${escapeHtml(cookie)}</div>
-                    <button class="copy-btn" onclick="copyToClipboard('${escapeHtml(cookie).replace(/'/g, "\\'")}')">
+                    <div class="result-content" id="cookieResult">${escapeHtml(cookie)}</div>
+                    <button class="copy-btn" onclick="copyToClipboard()">
                         📋 Copy to Clipboard
                     </button>
                 `;
@@ -271,7 +338,6 @@
             
             resultDiv.style.display = 'block';
             
-            // Auto-hide after 10 seconds for success messages
             if (type === 'success') {
                 setTimeout(() => {
                     if (resultDiv.style.display === 'block') {
@@ -285,8 +351,9 @@
             }
         }
         
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
+        function copyToClipboard() {
+            const cookieText = document.getElementById('cookieResult').textContent;
+            navigator.clipboard.writeText(cookieText).then(() => {
                 const btn = event.target;
                 const originalText = btn.innerHTML;
                 btn.innerHTML = '✅ Copied!';
@@ -304,12 +371,22 @@
             return div.innerHTML;
         }
         
-        // Add enter key support (Ctrl+Enter to refresh)
         document.getElementById('cookie').addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'Enter') {
                 refreshCookie();
             }
         });
+        
+        const savedCookie = localStorage.getItem('roblox_cookie');
+        if (savedCookie) {
+            document.getElementById('cookie').value = savedCookie;
+        }
+        
+        document.getElementById('cookie').addEventListener('change', (e) => {
+            localStorage.setItem('roblox_cookie', e.target.value);
+        });
+        
+        checkAPI();
     </script>
 </body>
 </html>
